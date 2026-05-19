@@ -139,6 +139,26 @@ async function seed() {
     await client.query(`INSERT INTO rooms (room_name) VALUES ('Ruang 1'), ('Ruang 2')`);
     console.log('✅ Seeded 2 rooms');
 
+    // Insert patients pasien4..pasien20
+    for (let i = 4; i <= 20; i++) {
+      const email = `pasien${i}@gmail.com`;
+      const phone = `0840000000${i}`;
+      const name = `Pasien ${i}`;
+      const gender = i % 2 === 0 ? 'P' : 'L';
+      const age = i;
+
+      const accRes = await client.query(
+        `INSERT INTO accounts (email, phone_number, password, role) VALUES ($1, $2, $3, 'pasien') RETURNING id`,
+        [email, phone, hashedPassword]
+      );
+
+      await client.query(
+        `INSERT INTO patient_details (account_id, full_name, gender, age) VALUES ($1, $2, $3, $4)`,
+        [accRes.rows[0].id, name, gender, age]
+      );
+    }
+    console.log('✅ Seeded pasien4..pasien20 accounts');
+
     // Get doctor IDs
     const doctorRows = await client.query(`SELECT account_id, doctor_code FROM doctor_details ORDER BY doctor_code`);
     const doctorMap = {};
