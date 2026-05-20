@@ -22,11 +22,18 @@ export default function AdminQueueManagement() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [qRes, sRes] = await Promise.all([api.get('/queues'), api.get('/schedules/today')]);
-      setQueues(qRes.data);
-      setSchedules(sRes.data);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      // Fetch queues and schedules independently so one failing doesn't block the other
+      const qPromise = api.get('/queues').then(r => r.data).catch(err => { console.error('queues fetch error', err); return []; });
+      const sPromise = api.get('/schedules/today').then(r => r.data).catch(err => { console.error('schedules fetch error', err); return []; });
+
+      const [qData, sData] = await Promise.all([qPromise, sPromise]);
+      setQueues(Array.isArray(qData) ? qData : []);
+      setSchedules(Array.isArray(sData) ? sData : []);
+    } catch (err) {
+      console.error('fetchData unexpected error', err);
+      setQueues([]);
+      setSchedules([]);
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -67,11 +74,12 @@ export default function AdminQueueManagement() {
 
   if (loading) return <div className="loading-center"><div className="spinner" /></div>;
 
-  // Group queues by room
+  // Group queues by room (use fallback key when room_name missing)
   const rooms = {};
   queues.forEach(q => {
-    if (!rooms[q.room_name]) rooms[q.room_name] = [];
-    rooms[q.room_name].push(q);
+    const key = q.room_name || 'Ruang';
+    if (!rooms[key]) rooms[key] = [];
+    rooms[key].push(q);
   });
 
   const totalWaiting = queues.filter(q => q.status === 'Menunggu').length;

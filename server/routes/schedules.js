@@ -88,12 +88,17 @@ router.get('/today', authenticate, async (req, res) => {
     `, [todayName]);
 
     // Add remaining quota for each schedule
-    const schedulesWithQuota = await Promise.all(
-      result.rows.map(async (schedule) => {
+    const schedulesWithQuota = [];
+    for (const schedule of result.rows) {
+      try {
         const remaining = await getRemainingQuota(schedule.id, today);
-        return { ...schedule, remaining_quota: remaining };
-      })
-    );
+        schedulesWithQuota.push({ ...schedule, remaining_quota: remaining });
+      } catch (err) {
+        console.error('Error computing remaining quota for schedule', schedule.id, err);
+        // Fallback: set remaining quota to 0 so frontend won't show as available
+        schedulesWithQuota.push({ ...schedule, remaining_quota: 0 });
+      }
+    }
 
     res.json(schedulesWithQuota);
   } catch (err) {
